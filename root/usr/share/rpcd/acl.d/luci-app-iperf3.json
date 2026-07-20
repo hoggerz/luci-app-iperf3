@@ -3,18 +3,16 @@
         "description": "Grant access to iPerf3",
         "read": {
             "uci": ["iperf3"],
-            "fs": ["exec"],
             "file": {
                 "/usr/bin/iperf3": ["exec"],
-                "/usr/bin/killall": ["exec"]
-            }        
+                "/etc/init.d/iperf3-luci": ["exec"]
+            }
         },
         "write": {
             "uci": ["iperf3"],
-            "fs": ["exec"],
             "file": {
                 "/usr/bin/iperf3": ["exec"],
-                "/usr/bin/killall": ["exec"]
+                "/etc/init.d/iperf3-luci": ["exec"]
             }
         }
     }

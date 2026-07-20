@@ -33,6 +33,15 @@ return view.extend({
         o = s.option(form.Flag, 'reverse', _('Reverse'), _('Run in reverse mode.'));
         o.default = o.disabled;
 
+        o = s.option(form.Flag, 'enabled', _('Enable Server'),
+            _('Allow the managed iPerf3 server to run.'));
+        o.default = o.disabled;
+
+        o = s.option(form.Value, 'bind', _('Server Bind Address'),
+            _('Address on which the iPerf3 server should listen.'));
+        o.datatype = 'ipaddr';
+        o.placeholder = '0.0.0.0';
+
         // Add a button to start the iperf3 test
         o = s.option(form.Button, '_start', _('Start Client Mode'));
         o.inputtitle = _('Start iPerf3 Client');
@@ -126,21 +135,38 @@ return view.extend({
 
 
     handleStartServer: function() {
-        var port = uci.get_first('iperf3', 'iperf3', 'port') || '5201';
-        fs.exec('/usr/bin/iperf3', ['-s', '-D', '-p', port]).then(function(res) {
-            ui.addNotification(null, _('iPerf3 server started successfully'), 'info');
+        fs.exec('/etc/init.d/iperf3-luci', ['start']).then(function(res) {
+            if (res.code === 0) {
+                ui.addNotification(null,
+                    _('Managed iPerf3 server started successfully'), 'info');
+            }
+            else {
+                ui.addNotification(null,
+                    _('Failed to start iPerf3 server: ') +
+                    (res.stderr || res.stdout || _('Unknown error')), 'error');
+            }
         }).catch(function(err) {
-            ui.addNotification(null, _('Failed to start iPerf3 server: ') + err.message, 'error');
+            ui.addNotification(null,
+                _('Failed to start iPerf3 server: ') +
+                (err.message || String(err)), 'error');
         });
     },
 
     handleStopServer: function() {
-        var command = `killall iperf3`;
-
-        fs.exec_direct('killall', ['iperf3']).then(function(res) {
-            ui.addNotification(null, _('iPerf3 stopped successfully'), 'info');
+        fs.exec('/etc/init.d/iperf3-luci', ['stop']).then(function(res) {
+            if (res.code === 0) {
+                ui.addNotification(null,
+                    _('Managed iPerf3 server stopped successfully'), 'info');
+            }
+            else {
+                ui.addNotification(null,
+                    _('Failed to stop iPerf3 server: ') +
+                    (res.stderr || res.stdout || _('Unknown error')), 'error');
+            }
         }).catch(function(err) {
-            ui.addNotification(null, _('Failed to stop iPerf3 server: ') + err.message, 'error');
+            ui.addNotification(null,
+                _('Failed to stop iPerf3 server: ') +
+                (err.message || String(err)), 'error');
         });
     }
 });
