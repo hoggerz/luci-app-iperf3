@@ -25,6 +25,11 @@ return view.extend({
         o.datatype = 'port';
         o.placeholder = '5201';
 
+        o = s.option(form.Value, 'duration', _('Duration'),
+            _('Length of the test in seconds.'));
+        o.datatype = 'range(1,300)';
+        o.placeholder = '10';
+
         o = s.option(form.Flag, 'reverse', _('Reverse'), _('Run in reverse mode.'));
         o.default = o.disabled;
 
@@ -54,8 +59,12 @@ return view.extend({
 
     handleStartTest: function() {
         var server = uci.get_first('iperf3', 'iperf3', 'server');
-        var port = uci.get_first('iperf3', 'iperf3', 'port') || '5201';
-        var reverse = uci.get_first('iperf3', 'iperf3', 'reverse') ? '-R' : '';
+        var port = uci.get_first('iperf3', 'iperf3', 'port') || '5201';        var duration = uci.get_first('iperf3', 'iperf3', 'duration') || '10';
+        var reverse = uci.get_first('iperf3', 'iperf3', 'reverse') === '1';
+        var args = ['-c', server, '-p', port, '-t', duration];
+
+        if (reverse)
+            args.push('-R');
         
         var modalContent = ui.showModal(_('iPerf3 Test Results'), [E('div', { 'class': 'cbi-section' }),
             E('p', _('running... Will take a bit...')),
@@ -67,9 +76,8 @@ return view.extend({
             }, _('Dismiss'))
             ]);
         
-            fs.exec('/usr/bin/iperf3', ['-c', server, '-p', port, reverse]).then(function(res) {
-                // Check if res.stdout is defined
-                if (res.stdout && res.stdout.length > 0){
+            fs.exec('/usr/bin/iperf3', args).then(function(res) {
+                if (res.code === 0 && res.stdout && res.stdout.length > 0) {
                     modalContent.removeChild(modalContent.lastChild);
                     modalContent.removeChild(modalContent.lastChild);
                     modalContent.appendChild(E('pre', [res.stdout]));
@@ -81,10 +89,15 @@ return view.extend({
                     }, _('Dismiss')));
                 }
                 else {
-                    // Handle case where stdout is undefined or empty
+                    var errorOutput = res.stderr || res.stdout ||
+                        _('No output was returned by iPerf3.');
+
                     modalContent.removeChild(modalContent.lastChild);
                     modalContent.removeChild(modalContent.lastChild);
-                    modalContent.appendChild(E('p', 'Failed to start iPerf3 test: No output received'));
+                    modalContent.appendChild(E('p', [
+                        _('iPerf3 test failed with exit code %s.').format(res.code)
+                    ]));
+                    modalContent.appendChild(E('pre', [errorOutput]));
                     modalContent.appendChild(E('button', {
                         'class': 'btn',
                         'click': function() {
@@ -94,8 +107,20 @@ return view.extend({
                 }
             })
             .catch(function(err) {
-                // Improved error handling
-                ui.addNotification(null, _('Failed to start iPerf3 test: ') + err.message, 'error');
+                modalContent.removeChild(modalContent.lastChild);
+                modalContent.removeChild(modalContent.lastChild);
+                modalContent.appendChild(E('p', [
+                    _('Unable to execute iPerf3.')
+                ]));
+                modalContent.appendChild(E('pre', [
+                    err.message || String(err)
+                ]));
+                modalContent.appendChild(E('button', {
+                    'class': 'btn',
+                    'click': function() {
+                        ui.hideModal();
+                    }
+                }, _('Dismiss')));
             });
     },
 
